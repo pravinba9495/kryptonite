@@ -136,7 +136,11 @@ func main() {
 		log.Infof("Current Exchange Rate: %f %s => %f %s", (fromTokenAmountFloat / math.Pow(10, float64(fromTokenDecimals))), fromTokenSymbol, (quoteToTokenAmountFloat / math.Pow(10, float64(toTokenDecimals))), toTokenSymbol)
 		log.Debug("Generated swap quote successfully")
 
-		log.Debug("Checking pricing conditions...")
+		log.Debug("Creating order data for signing...")
+		if err := r.CreateOrder(walletAddress, fromTokenAddress, toTokenAddress, fromTokenAmount, quote); err != nil {
+			log.Fatalf("Error occurred while creating order data for signing: %v, exiting...", err)
+		}
+		log.Debug("Created order data for signing successfully")
 
 		log.Infof("Sleeping for 30 seconds before next request...")
 		time.Sleep(30 * time.Second)

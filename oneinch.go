@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,23 +11,10 @@ import (
 
 // QuoteResponse represents the response structure for a swap quote from the 1inch API.
 type QuoteResponse struct {
-	FromTokenAmount    string  `json:"fromTokenAmount"`
-	ToTokenAmount      string  `json:"toTokenAmount"`
-	K                  float64 `json:"k"`
-	AutoK              float64 `json:"autoK"`
-	MxK                float64 `json:"mxK"`
-	IntegratorFee      float64 `json:"integratorFee"`
-	MarketAmount       string  `json:"marketAmount"`
-	FeeToken           string  `json:"feeToken"`
-	Gas                int64   `json:"gas"`
-	PfGas              int64   `json:"pfGas"`
-	PriceImpactPercent float64 `json:"priceImpactPercent"`
-	RecommendedPreset  string  `json:"recommended_preset"`
-	SettlementAddress  string  `json:"settlementAddress"`
-	Suggested          bool    `json:"suggested"`
-	SurplusFee         float64 `json:"surplusFee"`
-
-	Raw string
+	FromTokenAmount   string `json:"fromTokenAmount"`
+	ToTokenAmount     string `json:"toTokenAmount"`
+	RecommendedPreset string `json:"recommended_preset"`
+	Raw               string `json:"raw"`
 }
 
 // BalancesAndAllowancesResponse represents the response structure for token balances and allowances from the 1inch API.
@@ -40,8 +28,14 @@ type OneInchRouter interface {
 	// GenerateAccessToken generates a new access token for the 1inch API.
 	GenerateAccessToken() error
 
+	// GetWalletTokenBalancesAndRouterAllowances retrieves the balances and allowances for the specified wallet address
+	GetWalletTokenBalancesAndRouterAllowances(walletAddress string) (BalancesAndAllowancesResponse, error)
+
 	// GetQuote retrieves a swap quote from the 1inch API.
 	GetQuote(walletAddress string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string) (*QuoteResponse, error)
+
+	// CreateOrder creates a swap order on the 1inch API.
+	CreateOrder(walletAddress string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string, quote *QuoteResponse) error
 
 	// AccessToken returns the current access token.
 	AccessToken() string
@@ -54,9 +48,6 @@ type OneInchRouter interface {
 
 	// ChainID returns the blockchain network ID (e.g., "1" for Ethereum mainnet).
 	ChainID() string
-
-	// GetWalletTokenBalancesAndRouterAllowances retrieves the balances and allowances for the specified wallet address
-	GetWalletTokenBalancesAndRouterAllowances(walletAddress string) (BalancesAndAllowancesResponse, error)
 }
 
 // oneInchRouterSession holds the access token and expiration time for the 1inch API.
@@ -167,13 +158,74 @@ func (r *oneInchRouter) GetQuote(walletAddress string, fromTokenAddress string, 
 		return nil, err
 	}
 
+	var responseBody map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &responseBody); err != nil {
+		return nil, err
+	}
+
+	responseBody["slippage"] = responseBody["k"]
+	responseBody["autoSlippage"] = responseBody["autoK"]
+
+	bytes, err := json.Marshal(responseBody)
+	if err != nil {
+		return nil, err
+	}
+
 	var quoteResponse QuoteResponse
 	if err := json.Unmarshal(bodyBytes, &quoteResponse); err != nil {
 		return nil, err
 	}
-	quoteResponse.Raw = string(bodyBytes) // Store the raw response
+
+	quoteResponse.Raw = string(bytes)
 
 	return &quoteResponse, nil
+}
+
+// CreateOrder creates a swap order on the 1inch API using the provided wallet address, token addresses, and amount.
+func (r *oneInchRouter) CreateOrder(walletAddress string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string, quote *QuoteResponse) error {
+	if quote == nil {
+		return errors.New("invalid quote, cannot be nil")
+	}
+
+	url := fmt.Sprintf("https://proxy-app.1inch.io/v2.0/fusion/quoter/v2.0/%s/quote/build", r.chainId)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(quote.Raw)))
+	if err != nil {
+		return err
+	}
+
+	q := req.URL.Query()
+
+	q.Add("walletAddress", walletAddress)
+	q.Add("amount", fromTokenAmount)
+	q.Add("fromTokenAddress", fromTokenAddress)
+	q.Add("toTokenAddress", toTokenAddress)
+	q.Add("preset", quote.RecommendedPreset)
+	q.Add("source", "0xe26b9977") // TODO(praveen): no idea what this param is for, but it is probably needed by the API
+
+	req.URL.RawQuery = q.Encode()
+
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", r.session.AccessToken))
+	req.Header.Add("Content-Type", "application/json; charset=utf-8")
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return errors.New("request failed, status code: " + resp.Status)
+	}
+
+	_, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GenerateAccessToken generates a new access token for the 1inch API.
