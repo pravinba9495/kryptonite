@@ -94,7 +94,7 @@ func main() {
 			toTokenSymbol = stableTokenSymbol
 		}
 
-		log.Debugf("Swapping from %s to %s,  generating quote...", fromTokenSymbol, toTokenSymbol)
+		log.Debugf("Swapping from %s to %s, generating quote...", fromTokenSymbol, toTokenSymbol)
 		quote, err := r.GetQuote(walletAddress, fromTokenAddress, toTokenAddress, fromTokenAmount)
 		if err != nil {
 			log.Fatalf("Error occurred while generating quote: %v, exiting...", err)
