@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
-
-	"github.com/charmbracelet/log"
 )
 
 // QuoteResponse represents the response structure for a swap quote from the 1inch API.
@@ -35,7 +32,7 @@ type OneInchRouter interface {
 	GenerateAccessToken() error
 
 	// GetQuote retrieves a swap quote from the 1inch API.
-	GetQuote(walletAddress string, chainId string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string) error
+	GetQuote(walletAddress string, chainId string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string) (*QuoteResponse, error)
 
 	// AccessToken returns the current access token.
 	AccessToken() string
@@ -71,12 +68,12 @@ func (r *oneInchRouter) RouterContractAddress() string {
 }
 
 // GetQuote retrieves a swap quote from the 1inch API using the provided token addresses and amount.
-func (r *oneInchRouter) GetQuote(walletAddress string, chainId string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string) error {
+func (r *oneInchRouter) GetQuote(walletAddress string, chainId string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string) (*QuoteResponse, error) {
 	url := fmt.Sprintf("https://proxy-app.1inch.io/v2.0/fusion/quoter/v2.0/%s/quote/receive", chainId)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	q := req.URL.Query()
@@ -94,30 +91,25 @@ func (r *oneInchRouter) GetQuote(walletAddress string, chainId string, fromToken
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return err
+		return nil, err
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var quoteResponse QuoteResponse
 	if err := json.Unmarshal(bodyBytes, &quoteResponse); err != nil {
-		return err
+		return nil, err
 	}
 
-	fromAmount, _ := strconv.Atoi(quoteResponse.FromTokenAmount)
-	toAmount, _ := strconv.Atoi(quoteResponse.ToTokenAmount)
-
-	log.Infof("Current Exchange Rate: %.8f WBTC => %.6f USDT", float64(fromAmount)/1e8, float64(toAmount)/1e6)
-
-	return nil
+	return &quoteResponse, nil
 }
 
 // GenerateAccessToken generates a new access token for the 1inch API.
@@ -142,9 +134,6 @@ func (r *oneInchRouter) GenerateAccessToken() error {
 	if err := json.Unmarshal(bodyBytes, &r.session); err != nil {
 		return err
 	}
-
-	log.Debugf("Access Token: %s", r.AccessToken())
-	log.Debugf("Expiration: %d", r.Expiration())
 
 	return nil
 }

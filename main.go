@@ -32,12 +32,16 @@ func main() {
 		if err := r.GenerateAccessToken(); err != nil {
 			log.Fatalf("Error occurred while generating access token: %v, exiting...", err)
 		}
+		log.Debugf("Access Token: %s", r.AccessToken())
+		log.Debugf("Expiration: %d", r.Expiration())
 		log.Debug("Generated access token successfully")
 
 		log.Debug("Generating swap quote...")
-		if err := r.GetQuote(os.Getenv("WALLET_ADDRESS"), os.Getenv("CHAIN_ID"), os.Getenv("TARGET_TOKEN_ADDRESS"), os.Getenv("STABLE_TOKEN_ADDRESS"), "911447"); err != nil {
+		quote, err := r.GetQuote(os.Getenv("WALLET_ADDRESS"), os.Getenv("CHAIN_ID"), os.Getenv("TARGET_TOKEN_ADDRESS"), os.Getenv("STABLE_TOKEN_ADDRESS"), "911447")
+		if err != nil {
 			log.Fatalf("Error occurred while generating quote: %v, exiting...", err)
 		}
+		log.Infof("Current Exchange Rate: %s => %s", quote.FromTokenAmount, quote.ToTokenAmount)
 		log.Debug("Generated swap quote successfully")
 
 		log.Debug("Checking pricing conditions...")
