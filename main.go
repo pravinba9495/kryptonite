@@ -1,7 +1,9 @@
 package main
 
 import (
+	"math"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -67,31 +69,52 @@ func main() {
 		if balancesAndAllowances[stableTokenAddress].Allowance == "0" {
 			log.Fatalf("Insufficient router allowance for %s, creating approval tx...", stableTokenSymbol)
 		}
+		log.Debug("Checked router allowances successfully")
+
+		log.Debug("Checking token balances...")
 		if balancesAndAllowances[targetTokenAddress].Balance == "0" && balancesAndAllowances[stableTokenAddress].Balance == "0" {
 			log.Fatalf("Insufficient wallet balances for %s and %s, skipping...", targetTokenSymbol, stableTokenSymbol)
 		}
-		log.Debug("Checked token balances and router allowances successfully")
+		log.Debug("Checked token balances successfully")
 
 		var fromTokenAddress string
 		var fromTokenSymbol string
 		var fromTokenAmount string
+		var fromTokenDecimals int
 		var toTokenAddress string
 		var toTokenSymbol string
+		var toTokenDecimals int
 
 		if balancesAndAllowances[targetTokenAddress].Balance == "0" && balancesAndAllowances[stableTokenAddress].Balance != "0" {
 			fromTokenAddress = stableTokenAddress
 			fromTokenSymbol = stableTokenSymbol
 			fromTokenAmount = balancesAndAllowances[stableTokenAddress].Balance
+			fromTokenDecimals, err = strconv.Atoi(stableTokenDecimals)
+			if err != nil {
+				log.Fatalf("Error converting stable token decimals: %v, exiting...", err)
+			}
 			toTokenAddress = targetTokenAddress
 			toTokenSymbol = targetTokenSymbol
+			toTokenDecimals, err = strconv.Atoi(targetTokenDecimals)
+			if err != nil {
+				log.Fatalf("Error converting target token decimals: %v, exiting...", err)
+			}
 		}
 
 		if balancesAndAllowances[targetTokenAddress].Balance != "0" && balancesAndAllowances[stableTokenAddress].Balance == "0" {
 			fromTokenAddress = targetTokenAddress
 			fromTokenSymbol = targetTokenSymbol
 			fromTokenAmount = balancesAndAllowances[targetTokenAddress].Balance
+			fromTokenDecimals, err = strconv.Atoi(targetTokenDecimals)
+			if err != nil {
+				log.Fatalf("Error converting target token decimals: %v, exiting...", err)
+			}
 			toTokenAddress = stableTokenAddress
 			toTokenSymbol = stableTokenSymbol
+			toTokenDecimals, err = strconv.Atoi(stableTokenDecimals)
+			if err != nil {
+				log.Fatalf("Error converting stable token decimals: %v, exiting...", err)
+			}
 		}
 
 		log.Debugf("Waiting to swap from %s to %s, generating quote...", fromTokenSymbol, toTokenSymbol)
@@ -99,7 +122,18 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error occurred while generating quote: %v, exiting...", err)
 		}
-		log.Infof("Current Exchange Rate: %s %s => %s %s", quote.FromTokenAmount, fromTokenSymbol, quote.ToTokenAmount, toTokenSymbol)
+
+		fromTokenAmountFloat, err := strconv.ParseFloat(fromTokenAmount, 64)
+		if err != nil {
+			log.Fatalf("Error converting fromTokenAmount to float: %v, exiting...", err)
+		}
+
+		quoteToTokenAmountFloat, err := strconv.ParseFloat(quote.ToTokenAmount, 64)
+		if err != nil {
+			log.Fatalf("Error converting toTokenAmount to float: %v, exiting...", err)
+		}
+
+		log.Infof("Current Exchange Rate: %f %s => %f %s", (fromTokenAmountFloat / math.Pow(10, float64(fromTokenDecimals))), fromTokenSymbol, (quoteToTokenAmountFloat / math.Pow(10, float64(toTokenDecimals))), toTokenSymbol)
 		log.Debug("Generated swap quote successfully")
 
 		log.Debug("Checking pricing conditions...")
