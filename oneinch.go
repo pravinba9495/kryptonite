@@ -29,6 +29,7 @@ type QuoteResponse struct {
 	Raw string
 }
 
+// BalancesAndAllowancesResponse represents the response structure for token balances and allowances from the 1inch API.
 type BalancesAndAllowancesResponse map[string]struct {
 	Balance   string `json:"balance"`
 	Allowance string `json:"allowance"`
@@ -89,6 +90,7 @@ func (r *oneInchRouter) ChainID() string {
 	return r.routerContractAddress
 }
 
+// GetWalletTokenBalancesAndRouterAllowances retrieves the token balances and router allowances for the specified wallet address.
 func (r *oneInchRouter) GetWalletTokenBalancesAndRouterAllowances(walletAddress string) (BalancesAndAllowancesResponse, error) {
 	url := fmt.Sprintf("https://proxy-app.1inch.io/v2.0/balance/v1.2/%s/allowancesAndBalances/%s/%s", r.chainId, r.routerContractAddress, walletAddress)
 

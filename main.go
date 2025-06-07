@@ -52,7 +52,7 @@ func main() {
 		log.Debug("Fetching wallet token balances and router allowances...")
 		balancesAndAllowances, err := r.GetWalletTokenBalancesAndRouterAllowances(walletAddress)
 		if err != nil {
-			log.Fatalf("Error occurred while fetching balances and allowances: %v, exiting...", err)
+			log.Fatalf("Error occurred while fetching token balances and router allowances: %v, exiting...", err)
 		}
 		log.Debugf("%s Balance: %s", targetTokenSymbol, balancesAndAllowances[targetTokenAddress].Balance)
 		log.Debugf("%s Balance: %s", stableTokenSymbol, balancesAndAllowances[stableTokenAddress].Balance)
