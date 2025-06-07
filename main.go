@@ -60,12 +60,46 @@ func main() {
 		log.Debugf("%s Allowance: %s", stableTokenSymbol, balancesAndAllowances[stableTokenAddress].Allowance)
 		log.Debug("Fetched wallet token balances and router allowances successfully")
 
-		log.Debug("Generating swap quote...")
-		quote, err := r.GetQuote(walletAddress, targetTokenAddress, stableTokenAddress, balancesAndAllowances[targetTokenAddress].Balance)
+		log.Debug("Checking router allowances...")
+		if balancesAndAllowances[targetTokenAddress].Allowance == "0" {
+			log.Fatalf("Insufficient router allowance for %s, creating approval tx...", targetTokenSymbol)
+		}
+		if balancesAndAllowances[stableTokenAddress].Allowance == "0" {
+			log.Fatalf("Insufficient router allowance for %s, creating approval tx...", stableTokenSymbol)
+		}
+		if balancesAndAllowances[targetTokenAddress].Balance == "0" && balancesAndAllowances[stableTokenAddress].Balance == "0" {
+			log.Fatalf("Insufficient wallet balances for %s and %s, skipping...", targetTokenSymbol, stableTokenSymbol)
+		}
+		log.Debug("Checked token balances and router allowances successfully")
+
+		var fromTokenAddress string
+		var fromTokenSymbol string
+		var fromTokenAmount string
+		var toTokenAddress string
+		var toTokenSymbol string
+
+		if balancesAndAllowances[targetTokenAddress].Balance == "0" && balancesAndAllowances[stableTokenAddress].Balance != "0" {
+			fromTokenAddress = stableTokenAddress
+			fromTokenSymbol = stableTokenSymbol
+			fromTokenAmount = balancesAndAllowances[stableTokenAddress].Balance
+			toTokenAddress = targetTokenAddress
+			toTokenSymbol = targetTokenSymbol
+		}
+
+		if balancesAndAllowances[targetTokenAddress].Balance != "0" && balancesAndAllowances[stableTokenAddress].Balance == "0" {
+			fromTokenAddress = targetTokenAddress
+			fromTokenSymbol = targetTokenSymbol
+			fromTokenAmount = balancesAndAllowances[targetTokenAddress].Balance
+			toTokenAddress = stableTokenAddress
+			toTokenSymbol = stableTokenSymbol
+		}
+
+		log.Debugf("Swapping from %s to %s,  generating quote...", fromTokenSymbol, toTokenSymbol)
+		quote, err := r.GetQuote(walletAddress, fromTokenAddress, toTokenAddress, fromTokenAmount)
 		if err != nil {
 			log.Fatalf("Error occurred while generating quote: %v, exiting...", err)
 		}
-		log.Infof("Current Exchange Rate: %s => %s", quote.FromTokenAmount, quote.ToTokenAmount)
+		log.Infof("Current Exchange Rate: %s %s => %s %s", quote.FromTokenAmount, fromTokenSymbol, quote.ToTokenAmount, toTokenSymbol)
 		log.Debug("Generated swap quote successfully")
 
 		log.Debug("Checking pricing conditions...")
