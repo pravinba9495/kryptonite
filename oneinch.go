@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/charmbracelet/log"
 )
@@ -34,7 +35,7 @@ type OneInchRouter interface {
 	GenerateAccessToken() error
 
 	// GetQuote retrieves a swap quote from the 1inch API.
-	GetQuote(walletAddress string, chainId string, fromTokenAddress string, toTokenAddress string, fromAmount string) error
+	GetQuote(walletAddress string, chainId string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string) error
 
 	// AccessToken returns the current access token.
 	AccessToken() string
@@ -70,7 +71,7 @@ func (r *oneInchRouter) RouterContractAddress() string {
 }
 
 // GetQuote retrieves a swap quote from the 1inch API using the provided token addresses and amount.
-func (r *oneInchRouter) GetQuote(walletAddress string, chainId string, fromTokenAddress string, toTokenAddress string, fromAmount string) error {
+func (r *oneInchRouter) GetQuote(walletAddress string, chainId string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string) error {
 	url := fmt.Sprintf("https://proxy-app.1inch.io/v2.0/fusion/quoter/v2.0/%s/quote/receive", chainId)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -81,7 +82,7 @@ func (r *oneInchRouter) GetQuote(walletAddress string, chainId string, fromToken
 	q := req.URL.Query()
 
 	q.Add("walletAddress", walletAddress)
-	q.Add("amount", fromAmount)
+	q.Add("amount", fromTokenAmount)
 	q.Add("fromTokenAddress", fromTokenAddress)
 	q.Add("toTokenAddress", toTokenAddress)
 
@@ -111,7 +112,10 @@ func (r *oneInchRouter) GetQuote(walletAddress string, chainId string, fromToken
 		return err
 	}
 
-	log.Debugf("Current Exchange Rate: %s => %s", quoteResponse.FromTokenAmount, quoteResponse.ToTokenAmount)
+	fromAmount, _ := strconv.Atoi(quoteResponse.FromTokenAmount)
+	toAmount, _ := strconv.Atoi(quoteResponse.ToTokenAmount)
+
+	log.Infof("Current Exchange Rate: %.8f WBTC => %.6f USDT", float64(fromAmount)/1e8, float64(toAmount)/1e6)
 
 	return nil
 }
