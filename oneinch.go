@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 // QuoteResponse represents the response structure for a swap quote from the 1inch API.
@@ -25,8 +26,8 @@ type BalancesAndAllowancesResponse map[string]struct {
 
 // OneInchRouter defines the interface for interacting with the 1inch API.
 type OneInchRouter interface {
-	// GenerateAccessToken generates a new access token for the 1inch API.
-	GenerateAccessToken() error
+	// GenerateOrRefreshAccessToken generates or refreshes the access token for the 1inch API.
+	GenerateOrRefreshAccessToken() (bool, error)
 
 	// GetWalletTokenBalancesAndRouterAllowances retrieves the balances and allowances for the specified wallet address
 	GetWalletTokenBalancesAndRouterAllowances(walletAddress string) (BalancesAndAllowancesResponse, error)
@@ -228,30 +229,40 @@ func (r *oneInchRouter) CreateOrder(walletAddress string, fromTokenAddress strin
 	return nil
 }
 
-// GenerateAccessToken generates a new access token for the 1inch API.
-func (r *oneInchRouter) GenerateAccessToken() error {
+// GenerateOrRefreshAccessToken generates or refreshes the access token for the 1inch API.
+func (r *oneInchRouter) GenerateOrRefreshAccessToken() (bool, error) {
+	didRenew := false
+	now := time.Now().Unix()
+	diff := r.Expiration() - now - int64((10 * time.Minute).Seconds()) // with 10 minute buffer
+
+	if diff > 0 {
+		return didRenew, nil
+	} else {
+		didRenew = true
+	}
+
 	const url = "https://proxy-app.1inch.io/v2.0/auth/token?ngsw-bypass"
 
 	resp, err := http.Get(url)
 	if err != nil {
-		return err
+		return didRenew, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.New("request failed, status code: " + resp.Status)
+		return didRenew, errors.New("request failed, status code: " + resp.Status)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return didRenew, err
 	}
 
 	if err := json.Unmarshal(bodyBytes, &r.session); err != nil {
-		return err
+		return didRenew, err
 	}
 
-	return nil
+	return didRenew, nil
 }
 
 // AccessToken returns the current access token for the 1inch API.

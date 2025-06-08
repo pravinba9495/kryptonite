@@ -43,13 +43,15 @@ func main() {
 	log.Infof("Router Chain ID: %s", r.ChainID())
 
 	for {
-		log.Debug("Generating access token...")
-		if err := r.GenerateAccessToken(); err != nil {
-			log.Fatalf("Error occurred while generating access token: %v, exiting...", err)
+		didRenew, err := r.GenerateOrRefreshAccessToken()
+		if err != nil {
+			log.Fatalf("Error occurred while generating/refreshing access token: %v, exiting...", err)
+		}
+		if didRenew {
+			log.Debug("Generated/Refreshed access token successfully")
 		}
 		log.Debugf("Access Token: %s", r.AccessToken())
 		log.Debugf("Expiration: %d", r.Expiration())
-		log.Debug("Generated access token successfully")
 
 		log.Debug("Fetching wallet token balances and router allowances...")
 		balancesAndAllowances, err := r.GetWalletTokenBalancesAndRouterAllowances(walletAddress)
