@@ -79,7 +79,7 @@ func (r *oneInchRouter) RouterContractAddress() string {
 
 // ChainID returns the blockchain network ID (e.g., "1" for Ethereum mainnet).
 func (r *oneInchRouter) ChainID() string {
-	return r.routerContractAddress
+	return r.chainId
 }
 
 // GetWalletTokenBalancesAndRouterAllowances retrieves the token balances and router allowances for the specified wallet address.

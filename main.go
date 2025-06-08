@@ -21,7 +21,8 @@ func main() {
 
 	log.SetLevel(log.DebugLevel)
 
-	walletAddress := os.Getenv("WALLET_ADDRESS")
+	walletExpectedAddress := os.Getenv("WALLET_ADDRESS")
+	privateKeyHex := os.Getenv("WALLET_PRIVATE_KEY_HEX")
 	chainId := os.Getenv("CHAIN_ID")
 	targetTokenSymbol := os.Getenv("TARGET_TOKEN_SYMBOL")
 	targetTokenName := os.Getenv("TARGET_TOKEN_NAME")
@@ -33,7 +34,12 @@ func main() {
 	stableTokenAddress := os.Getenv("STABLE_TOKEN_ADDRESS")
 	routerContractAddress := os.Getenv("ROUTER_CONTRACT_ADDRESS")
 
-	log.Infof("Wallet Address: %s", walletAddress)
+	w, err := NewWallet(privateKeyHex, walletExpectedAddress, chainId)
+	if err != nil {
+		log.Fatalf("Error occurred while creating wallet: %v, exiting...", err)
+	}
+
+	log.Infof("Wallet Address: %s", w.Address())
 	log.Infof("Chain ID: %s", chainId)
 	log.Infof("Target Token: %s, Name: %s, Decimals: %s, Address: %s", targetTokenSymbol, targetTokenName, targetTokenDecimals, targetTokenAddress)
 	log.Infof("Stable Token: %s, Name: %s, Decimals: %s, Address: %s", stableTokenSymbol, stableTokenName, stableTokenDecimals, stableTokenAddress)
@@ -54,7 +60,7 @@ func main() {
 		log.Debugf("Expiration: %d", r.Expiration())
 
 		log.Debug("Fetching wallet token balances and router allowances...")
-		balancesAndAllowances, err := r.GetWalletTokenBalancesAndRouterAllowances(walletAddress)
+		balancesAndAllowances, err := r.GetWalletTokenBalancesAndRouterAllowances(w.Address())
 		if err != nil {
 			log.Fatalf("Error occurred while fetching token balances and router allowances: %v, exiting...", err)
 		}
@@ -120,7 +126,7 @@ func main() {
 		}
 
 		log.Debugf("Waiting to swap from %s to %s, generating quote...", fromTokenSymbol, toTokenSymbol)
-		quote, err := r.GetQuote(walletAddress, fromTokenAddress, toTokenAddress, fromTokenAmount)
+		quote, err := r.GetQuote(w.Address(), fromTokenAddress, toTokenAddress, fromTokenAmount)
 		if err != nil {
 			log.Fatalf("Error occurred while generating quote: %v, exiting...", err)
 		}
@@ -139,7 +145,7 @@ func main() {
 		log.Debug("Generated swap quote successfully")
 
 		log.Debug("Creating order data for signing...")
-		if err := r.CreateOrder(walletAddress, fromTokenAddress, toTokenAddress, fromTokenAmount, quote); err != nil {
+		if err := r.CreateOrder(w.Address(), fromTokenAddress, toTokenAddress, fromTokenAmount, quote); err != nil {
 			log.Fatalf("Error occurred while creating order data for signing: %v, exiting...", err)
 		}
 		log.Debug("Created order data for signing successfully")
