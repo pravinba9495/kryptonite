@@ -92,16 +92,16 @@ func main() {
 
 		log.Debug("Checking router allowances...")
 		if balancesAndAllowances[targetTokenAddress].Allowance == "0" {
-			log.Fatalf("Insufficient router allowance for %s, creating approval tx...", targetTokenSymbol)
+			log.Fatalf("Insufficient router allowance for %s, exiting...", targetTokenSymbol)
 		}
 		if balancesAndAllowances[stableTokenAddress].Allowance == "0" {
-			log.Fatalf("Insufficient router allowance for %s, creating approval tx...", stableTokenSymbol)
+			log.Fatalf("Insufficient router allowance for %s, exiting...", stableTokenSymbol)
 		}
 		log.Debug("Checked router allowances successfully")
 
 		log.Debug("Checking token balances...")
 		if balancesAndAllowances[targetTokenAddress].Balance == "0" && balancesAndAllowances[stableTokenAddress].Balance == "0" {
-			log.Fatalf("Insufficient wallet balances for %s and %s, skipping...", targetTokenSymbol, stableTokenSymbol)
+			log.Fatalf("Insufficient wallet balances for %s and %s, exiting...", targetTokenSymbol, stableTokenSymbol)
 		}
 		log.Debug("Checked token balances successfully")
 
