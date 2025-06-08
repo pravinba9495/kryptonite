@@ -9,17 +9,29 @@ import (
 
 // Wallet interface defines methods for signing messages and retrieving the wallet address.
 type Wallet interface {
+	// Sign signs a message using the wallet's private key.
 	Sign(message string) (string, error)
+
+	// Address returns the wallet's address.
 	Address() string
+
+	// ChainID returns the blockchain network ID associated with the wallet.
 	ChainID() string
 }
 
 // wallet implements the Wallet interface.
 type wallet struct {
+	// privateKey is the ECDSA private key used for signing messages.
 	privateKey *ecdsa.PrivateKey
-	publicKey  *ecdsa.PublicKey
-	address    string
-	chainId    string
+
+	// publicKey is the ECDSA public key derived from the private key.
+	publicKey *ecdsa.PublicKey
+
+	// address is the Ethereum address derived from the public key.
+	address string
+
+	// chainId is the blockchain network ID associated with the wallet.
+	chainId string
 }
 
 // Sign simulates signing a message with the wallet's private key.
