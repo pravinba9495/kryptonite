@@ -69,13 +69,10 @@ func main() {
 	log.Infof("Router Chain ID: %s", r.ChainID())
 
 	for {
-		didRenew, err := r.GenerateOrRefreshAccessToken()
-		if err != nil {
+		if err := r.GenerateOrRefreshAccessToken(); err != nil {
 			log.Fatalf("Error occurred while generating/refreshing access token: %v, exiting...", err)
 		}
-		if didRenew {
-			log.Debug("Generated/Refreshed access token successfully")
-		}
+		log.Debug("Generated/Refreshed access token successfully")
 		log.Debugf("Access Token: %s", r.AccessToken())
 		log.Debugf("Expiration: %d", r.Expiration())
 
@@ -198,7 +195,7 @@ func main() {
 		log.Debug("Generated swap quote successfully")
 
 		log.Debug("Creating order data for signing...")
-		if err := r.CreateOrder(w.Address(), fromTokenAddress, toTokenAddress, fromTokenAmount, quote); err != nil {
+		if _, err := r.CreateOrder(w.Address(), fromTokenAddress, toTokenAddress, fromTokenAmount, quote); err != nil {
 			log.Fatalf("Error occurred while creating order data for signing: %v, exiting...", err)
 		}
 		log.Debug("Created order data for signing successfully")

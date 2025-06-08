@@ -18,6 +18,41 @@ type QuoteResponse struct {
 	Raw               string `json:"raw"`
 }
 
+// CreateOrderResponse represents the response structure for creating a swap order on the 1inch API.
+type CreateOrderResponse struct {
+	TypedData struct {
+		PrimaryType string `json:"primaryType"`
+		Types       struct {
+			EIP712Domain []struct {
+				Name string `json:"name"`
+				Type string `json:"type"`
+			} `json:"EIP712Domain"`
+			Order []struct {
+				Name string `json:"name"`
+				Type string `json:"type"`
+			} `json:"Order"`
+		} `json:"types"`
+		Domain struct {
+			Name              string `json:"name"`
+			Version           string `json:"version"`
+			ChainId           int    `json:"chainId"`
+			VerifyingContract string `json:"verifyingContract"`
+		} `json:"domain"`
+		Message struct {
+			Maker        string `json:"maker"`
+			MakerAsset   string `json:"makerAsset"`
+			TakerAsset   string `json:"takerAsset"`
+			MakerTraits  string `json:"makerTraits"`
+			Salt         string `json:"salt"`
+			MakingAmount string `json:"makingAmount"`
+			TakingAmount string `json:"takingAmount"`
+			Receiver     string `json:"receiver"`
+		} `json:"message"`
+	} `json:"typedData"`
+	OrderHash string `json:"orderHash"`
+	Extension string `json:"extension"`
+}
+
 // BalancesAndAllowancesResponse represents the response structure for token balances and allowances from the 1inch API.
 type BalancesAndAllowancesResponse map[string]struct {
 	Balance   string `json:"balance"`
@@ -27,7 +62,7 @@ type BalancesAndAllowancesResponse map[string]struct {
 // OneInchRouter defines the interface for interacting with the 1inch API.
 type OneInchRouter interface {
 	// GenerateOrRefreshAccessToken generates or refreshes the access token for the 1inch API.
-	GenerateOrRefreshAccessToken() (bool, error)
+	GenerateOrRefreshAccessToken() error
 
 	// GetWalletTokenBalancesAndRouterAllowances retrieves the balances and allowances for the specified wallet address
 	GetWalletTokenBalancesAndRouterAllowances(walletAddress string) (BalancesAndAllowancesResponse, error)
@@ -36,7 +71,7 @@ type OneInchRouter interface {
 	GetQuote(walletAddress string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string) (*QuoteResponse, error)
 
 	// CreateOrder creates a swap order on the 1inch API.
-	CreateOrder(walletAddress string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string, quote *QuoteResponse) error
+	CreateOrder(walletAddress string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string, quote *QuoteResponse) (*CreateOrderResponse, error)
 
 	// AccessToken returns the current access token.
 	AccessToken() string
@@ -183,16 +218,16 @@ func (r *oneInchRouter) GetQuote(walletAddress string, fromTokenAddress string, 
 }
 
 // CreateOrder creates a swap order on the 1inch API using the provided wallet address, token addresses, and amount.
-func (r *oneInchRouter) CreateOrder(walletAddress string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string, quote *QuoteResponse) error {
+func (r *oneInchRouter) CreateOrder(walletAddress string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string, quote *QuoteResponse) (*CreateOrderResponse, error) {
 	if quote == nil {
-		return errors.New("invalid quote, cannot be nil")
+		return nil, errors.New("invalid quote, cannot be nil")
 	}
 
 	url := fmt.Sprintf("https://proxy-app.1inch.io/v2.0/fusion/quoter/v2.0/%s/quote/build", r.chainId)
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(quote.Raw)))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	q := req.URL.Query()
@@ -213,56 +248,58 @@ func (r *oneInchRouter) CreateOrder(walletAddress string, fromTokenAddress strin
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return errors.New("request failed, status code: " + resp.Status)
-	}
-
-	_, err = io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// GenerateOrRefreshAccessToken generates or refreshes the access token for the 1inch API.
-func (r *oneInchRouter) GenerateOrRefreshAccessToken() (bool, error) {
-	didRenew := false
-	now := time.Now().Unix()
-	diff := r.Expiration() - now - int64((10 * time.Minute).Seconds()) // with 10 minute buffer
-
-	if diff > 0 {
-		return didRenew, nil
-	} else {
-		didRenew = true
-	}
-
-	const url = "https://proxy-app.1inch.io/v2.0/auth/token?ngsw-bypass"
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return didRenew, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return didRenew, errors.New("request failed, status code: " + resp.Status)
+		return nil, errors.New("request failed, status code: " + resp.Status)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return didRenew, err
+		return nil, err
+	}
+
+	var createOrderResponse CreateOrderResponse
+	if err := json.Unmarshal(bodyBytes, &createOrderResponse); err != nil {
+		return nil, err
+	}
+
+	return &createOrderResponse, nil
+}
+
+// GenerateOrRefreshAccessToken generates or refreshes the access token for the 1inch API.
+func (r *oneInchRouter) GenerateOrRefreshAccessToken() error {
+	now := time.Now().Unix()
+	diff := r.Expiration() - now - int64((10 * time.Minute).Seconds()) // with 10 minute buffer
+
+	if diff > 0 {
+		return nil
+	}
+
+	const url = "https://proxy-app.1inch.io/v2.0/auth/token"
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.New("request failed, status code: " + resp.Status)
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
 	}
 
 	if err := json.Unmarshal(bodyBytes, &r.session); err != nil {
-		return didRenew, err
+		return err
 	}
 
-	return didRenew, nil
+	return nil
 }
 
 // AccessToken returns the current access token for the 1inch API.
