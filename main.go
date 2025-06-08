@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"math"
 	"os"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -36,6 +38,20 @@ func main() {
 	stableTokenDecimals := os.Getenv("STABLE_TOKEN_DECIMALS")
 	stableTokenAddress := os.Getenv("STABLE_TOKEN_ADDRESS")
 	routerContractAddress := os.Getenv("ROUTER_CONTRACT_ADDRESS")
+	redisHost := os.Getenv("REDIS_HOST")
+	redisPort := os.Getenv("REDIS_PORT")
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+
+	log.Info("Connecting to redis...")
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     redisHost + ":" + redisPort,
+		Password: redisPassword,
+		DB:       0,
+	})
+	if err := rdb.Ping(context.TODO()).Err(); err != nil {
+		log.Fatalf("Error occurred while connecting to Redis: %v, exiting...", err)
+	}
+	log.Info("Connected to redis successfully")
 
 	w, err := NewWallet(privateKeyHex, walletExpectedAddress, chainId)
 	if err != nil {
