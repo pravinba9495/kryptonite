@@ -108,14 +108,14 @@ func main() {
 		log.Debug("Updating token balances in redis...")
 		b1, err := rdb.Get(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", targetTokenSymbol)).Result()
 		if err != nil {
-			log.Debugf("Key LAST_BALANCE:%s does not exist in Redis, creating it...", targetTokenSymbol)
+			log.Warnf("Key LAST_BALANCE:%s does not exist in Redis, creating it...", targetTokenSymbol)
 			if err := rdb.Set(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", targetTokenSymbol), balancesAndAllowances[targetTokenAddress].Balance, 0).Err(); err != nil {
 				log.Fatalf("Error occurred while setting LAST_BALANCE:%s in Redis: %v, exiting...", targetTokenSymbol, err)
 			}
 		}
 		b2, err := rdb.Get(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", stableTokenSymbol)).Result()
 		if err != nil {
-			log.Debugf("Key LAST_BALANCE:%s does not exist in Redis, creating it...", stableTokenSymbol)
+			log.Warnf("Key LAST_BALANCE:%s does not exist in Redis, creating it...", stableTokenSymbol)
 			if err := rdb.Set(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", stableTokenSymbol), balancesAndAllowances[stableTokenAddress].Balance, 0).Err(); err != nil {
 				log.Fatalf("Error occurred while setting LAST_BALANCE:%s in Redis: %v, exiting...", stableTokenSymbol, err)
 			}
