@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-
+	log.SetLevel(log.DebugLevel)
 	log.SetReportCaller(true)
 	log.Info("Starting service...")
 
@@ -19,7 +19,10 @@ func main() {
 		log.Warnf("Could not load .env file: %v", err)
 	}
 
-	log.SetLevel(log.DebugLevel)
+	env := os.Getenv("ENV")
+	if env == "production" {
+		log.SetLevel(log.InfoLevel)
+	}
 
 	walletExpectedAddress := os.Getenv("WALLET_ADDRESS")
 	privateKeyHex := os.Getenv("WALLET_PRIVATE_KEY_HEX")
