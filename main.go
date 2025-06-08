@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"os"
 	"strconv"
@@ -103,6 +104,33 @@ func main() {
 			log.Fatalf("Insufficient wallet balances for %s and %s, skipping...", targetTokenSymbol, stableTokenSymbol)
 		}
 		log.Debug("Checked token balances successfully")
+
+		log.Debug("Updating token balances in redis...")
+		b1, err := rdb.Get(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", targetTokenSymbol)).Result()
+		if err != nil {
+			log.Debugf("Key LAST_BALANCE:%s does not exist in Redis, creating it...", targetTokenSymbol)
+			if err := rdb.Set(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", targetTokenSymbol), balancesAndAllowances[targetTokenAddress].Balance, 0).Err(); err != nil {
+				log.Fatalf("Error occurred while setting LAST_BALANCE:%s in Redis: %v, exiting...", targetTokenSymbol, err)
+			}
+		}
+		b2, err := rdb.Get(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", stableTokenSymbol)).Result()
+		if err != nil {
+			log.Debugf("Key LAST_BALANCE:%s does not exist in Redis, creating it...", stableTokenSymbol)
+			if err := rdb.Set(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", stableTokenSymbol), balancesAndAllowances[stableTokenAddress].Balance, 0).Err(); err != nil {
+				log.Fatalf("Error occurred while setting LAST_BALANCE:%s in Redis: %v, exiting...", stableTokenSymbol, err)
+			}
+		}
+		if b1 != balancesAndAllowances[targetTokenAddress].Balance {
+			if err := rdb.LPush(context.TODO(), fmt.Sprintf("BALANCES:%s", targetTokenSymbol), balancesAndAllowances[targetTokenAddress].Balance).Err(); err != nil {
+				log.Fatalf("Error occurred while pushing %s balance to Redis: %v, exiting...", targetTokenSymbol, err)
+			}
+		}
+		if b2 != balancesAndAllowances[stableTokenAddress].Balance {
+			if err := rdb.LPush(context.TODO(), fmt.Sprintf("BALANCES:%s", stableTokenSymbol), balancesAndAllowances[stableTokenAddress].Balance).Err(); err != nil {
+				log.Fatalf("Error occurred while pushing %s balance to Redis: %v, exiting...", stableTokenSymbol, err)
+			}
+		}
+		log.Debug("Updated token balances in redis successfully")
 
 		var fromTokenAddress string
 		var fromTokenSymbol string
