@@ -103,14 +103,19 @@ func main() {
 		log.Debug("Checked token balances successfully")
 
 		log.Debug("Updating token balances in redis...")
-		if balancesAndAllowances[targetTokenAddress].Balance != "0" {
-			b1, err := rdb.Get(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", targetTokenSymbol)).Result()
-			if err != nil {
-				log.Warnf("Key LAST_BALANCE:%s does not exist in Redis, creating it...", targetTokenSymbol)
-				if err := rdb.Set(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", targetTokenSymbol), balancesAndAllowances[targetTokenAddress].Balance, 0).Err(); err != nil {
-					log.Fatalf("Error occurred while setting LAST_BALANCE:%s in Redis: %v, exiting...", targetTokenSymbol, err)
-				}
+		b1, err := rdb.Get(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", targetTokenSymbol)).Result()
+		if err == redis.Nil {
+			log.Warnf("Key LAST_BALANCE:%s does not exist in Redis, creating it...", targetTokenSymbol)
+			if err := rdb.Set(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", targetTokenSymbol), balancesAndAllowances[targetTokenAddress].Balance, 0).Err(); err != nil {
+				log.Fatalf("Error occurred while setting LAST_BALANCE:%s in Redis: %v, exiting...", targetTokenSymbol, err)
 			}
+		} else {
+			if err != nil {
+				log.Fatalf("Error occurred while getting LAST_BALANCE:%s from Redis: %v, exiting...", targetTokenSymbol, err)
+			}
+		}
+
+		if balancesAndAllowances[targetTokenAddress].Balance != "0" {
 			if b1 != balancesAndAllowances[targetTokenAddress].Balance {
 				if err := rdb.Set(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", targetTokenSymbol), balancesAndAllowances[targetTokenAddress].Balance, 0).Err(); err != nil {
 					log.Fatalf("Error occurred while setting LAST_BALANCE:%s in Redis: %v, exiting...", targetTokenSymbol, err)
@@ -121,14 +126,19 @@ func main() {
 			}
 		}
 
-		if balancesAndAllowances[stableTokenAddress].Balance != "0" {
-			b2, err := rdb.Get(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", stableTokenSymbol)).Result()
-			if err != nil {
-				log.Warnf("Key LAST_BALANCE:%s does not exist in Redis, creating it...", stableTokenSymbol)
-				if err := rdb.Set(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", stableTokenSymbol), balancesAndAllowances[stableTokenAddress].Balance, 0).Err(); err != nil {
-					log.Fatalf("Error occurred while setting LAST_BALANCE:%s in Redis: %v, exiting...", stableTokenSymbol, err)
-				}
+		b2, err := rdb.Get(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", stableTokenSymbol)).Result()
+		if err == redis.Nil {
+			log.Warnf("Key LAST_BALANCE:%s does not exist in Redis, creating it...", stableTokenSymbol)
+			if err := rdb.Set(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", stableTokenSymbol), balancesAndAllowances[stableTokenAddress].Balance, 0).Err(); err != nil {
+				log.Fatalf("Error occurred while setting LAST_BALANCE:%s in Redis: %v, exiting...", stableTokenSymbol, err)
 			}
+		} else {
+			if err != nil {
+				log.Fatalf("Error occurred while getting LAST_BALANCE:%s from Redis: %v, exiting...", stableTokenSymbol, err)
+			}
+		}
+
+		if balancesAndAllowances[stableTokenAddress].Balance != "0" {
 			if b2 != balancesAndAllowances[stableTokenAddress].Balance {
 				if err := rdb.Set(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", stableTokenSymbol), balancesAndAllowances[stableTokenAddress].Balance, 0).Err(); err != nil {
 					log.Fatalf("Error occurred while setting LAST_BALANCE:%s in Redis: %v, exiting...", stableTokenSymbol, err)
