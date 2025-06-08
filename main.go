@@ -121,11 +121,17 @@ func main() {
 			}
 		}
 		if b1 != balancesAndAllowances[targetTokenAddress].Balance {
+			if err := rdb.Set(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", targetTokenSymbol), balancesAndAllowances[targetTokenAddress].Balance, 0).Err(); err != nil {
+				log.Fatalf("Error occurred while setting LAST_BALANCE:%s in Redis: %v, exiting...", targetTokenSymbol, err)
+			}
 			if err := rdb.LPush(context.TODO(), fmt.Sprintf("BALANCES:%s", targetTokenSymbol), balancesAndAllowances[targetTokenAddress].Balance).Err(); err != nil {
 				log.Fatalf("Error occurred while pushing %s balance to Redis: %v, exiting...", targetTokenSymbol, err)
 			}
 		}
 		if b2 != balancesAndAllowances[stableTokenAddress].Balance {
+			if err := rdb.Set(context.TODO(), fmt.Sprintf("LAST_BALANCE:%s", stableTokenSymbol), balancesAndAllowances[stableTokenAddress].Balance, 0).Err(); err != nil {
+				log.Fatalf("Error occurred while setting LAST_BALANCE:%s in Redis: %v, exiting...", stableTokenSymbol, err)
+			}
 			if err := rdb.LPush(context.TODO(), fmt.Sprintf("BALANCES:%s", stableTokenSymbol), balancesAndAllowances[stableTokenAddress].Balance).Err(); err != nil {
 				log.Fatalf("Error occurred while pushing %s balance to Redis: %v, exiting...", stableTokenSymbol, err)
 			}
