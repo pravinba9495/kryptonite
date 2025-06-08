@@ -19,7 +19,7 @@ func main() {
 	log.Info("Starting service...")
 
 	if err := godotenv.Load(); err != nil {
-		log.Warnf("Could not load .env file: %v", err)
+		log.Warnf("Error occuured while loading .env file: %v", err)
 	}
 
 	env := os.Getenv("ENV")
