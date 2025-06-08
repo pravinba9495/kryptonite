@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"errors"
 
@@ -9,8 +10,11 @@ import (
 
 // Wallet interface defines methods for signing messages and retrieving the wallet address.
 type Wallet interface {
-	// Sign signs a message using the wallet's private key.
-	Sign(message string) (string, error)
+	// SignMessage signs a message using the wallet's private key and returns the signature.
+	SignMessage(message string) ([]byte, error)
+
+	// VerifySignature verifies a message signature using the wallet's public key.
+	VerifySignature(signature []byte, message string) error
 
 	// Address returns the wallet's address.
 	Address() string
@@ -34,9 +38,33 @@ type wallet struct {
 	chainId string
 }
 
-// Sign simulates signing a message with the wallet's private key.
-func (w *wallet) Sign(message string) (string, error) {
-	return message, nil
+// SignMessage signs a message using the wallet's private key and returns the signature.
+func (w *wallet) SignMessage(message string) ([]byte, error) {
+	hash := crypto.Keccak256Hash([]byte(message))
+
+	signature, err := crypto.Sign(hash.Bytes(), w.privateKey)
+	if err != nil {
+		return []byte(""), err
+	}
+
+	return signature, nil
+}
+
+// Verify verifies a message signature using the wallet's private key
+func (w *wallet) VerifySignature(signature []byte, message string) error {
+	hash := crypto.Keccak256Hash([]byte(message))
+
+	sigPublicKey, err := crypto.Ecrecover(hash.Bytes(), signature)
+	if err != nil {
+		return err
+	}
+
+	isMatching := bytes.Equal(sigPublicKey, crypto.FromECDSAPub(w.publicKey))
+
+	if !isMatching {
+		return errors.New("signature does not match the public key")
+	}
+	return nil
 }
 
 // Address returns the wallet's address.

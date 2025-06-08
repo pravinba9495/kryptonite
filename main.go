@@ -209,11 +209,22 @@ func main() {
 		log.Infof("Current Exchange Rate: %f %s => %f %s", (fromTokenAmountFloat / math.Pow(10, float64(fromTokenDecimals))), fromTokenSymbol, (quoteToTokenAmountFloat / math.Pow(10, float64(toTokenDecimals))), toTokenSymbol)
 		log.Debug("Generated swap quote successfully")
 
-		log.Debug("Creating order data for signing...")
-		if _, err := r.CreateOrder(w.Address(), fromTokenAddress, toTokenAddress, fromTokenAmount, quote); err != nil {
+		log.Debug("Creating order data...")
+		order, err := r.CreateOrder(w.Address(), fromTokenAddress, toTokenAddress, fromTokenAmount, quote)
+		if err != nil {
 			log.Fatalf("Error occurred while creating order data for signing: %v, exiting...", err)
 		}
-		log.Debug("Created order data for signing successfully")
+		log.Debugf("Created order with hash: %s successfully", order.OrderHash)
+
+		log.Debug("Signing order...")
+		signature, err := w.SignMessage(order.OrderHash)
+		if err != nil {
+			log.Fatalf("Error occurred while signing order: %v, exiting...", err)
+		}
+		if err := w.VerifySignature(signature, order.OrderHash); err != nil {
+			log.Fatalf("Error occurred while verifying signature: %v, exiting...", err)
+		}
+		log.Debug("Signed order successfully")
 
 		dur := 10 * time.Second
 		log.Infof("Sleeping for %s before next request...", dur)
