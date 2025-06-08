@@ -144,7 +144,8 @@ func main() {
 		}
 		log.Debug("Created order data for signing successfully")
 
-		log.Infof("Sleeping for 30 seconds before next request...")
-		time.Sleep(30 * time.Second)
+		dur := 30 * time.Second
+		log.Infof("Sleeping for %s before next request...", dur)
+		time.Sleep(dur)
 	}
 }
