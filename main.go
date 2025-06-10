@@ -70,6 +70,10 @@ func main() {
 	log.Infof("Router Contract Address: %s", r.RouterContractAddress())
 	log.Infof("Router Chain ID: %s", r.ChainID())
 
+	pm := NewPriceMonitor(BuyOrder, 0, 0, 1, 2)
+
+	done := false
+
 	for {
 		if err := r.GenerateOrRefreshAccessToken(); err != nil {
 			log.Fatalf("Error occurred while generating/refreshing access token: %v, exiting...", err)
@@ -192,6 +196,27 @@ func main() {
 			}
 		}
 
+		if !done {
+			if fromTokenSymbol == stableTokenSymbol {
+				pm.SwitchOrderType(BuyOrder, 999999999999)
+			} else {
+				cmd := rdb.Get(context.TODO(), fmt.Sprintf("LAST_BUY_PRICE:%s", targetTokenSymbol))
+				if cmd.Err() != nil && cmd.Err() != redis.Nil {
+					log.Fatalf("Error occurred while getting LAST_BUY_PRICE%s from Redis: %v, exiting...", toTokenSymbol, cmd.Err())
+				}
+				lastBuyPrice, err := cmd.Result()
+				if err != nil {
+					log.Fatalf("Error occurred while getting LAST_BUY_PRICE%s from Redis: %v, exiting...", toTokenSymbol, err)
+				}
+				lastBuyPriceFloat, err := strconv.ParseFloat(lastBuyPrice, 64)
+				if err != nil {
+					log.Fatalf("Error converting LAST_BUY_PRICE%s to float: %v, exiting...", toTokenSymbol, err)
+				}
+				pm.SwitchOrderType(SellOrder, lastBuyPriceFloat)
+			}
+			done = true
+		}
+
 		log.Debugf("Waiting to swap from %s to %s, generating quote...", fromTokenSymbol, toTokenSymbol)
 		quote, err := r.GetQuote(w.Address(), fromTokenAddress, toTokenAddress, fromTokenAmount)
 		if err != nil {
@@ -208,7 +233,22 @@ func main() {
 			log.Fatalf("Error converting toTokenAmount to float: %v, exiting...", err)
 		}
 
-		log.Infof("Current Exchange Rate: %f %s => %f %s", (fromTokenAmountFloat / math.Pow(10, float64(fromTokenDecimals))), fromTokenSymbol, (quoteToTokenAmountFloat / math.Pow(10, float64(toTokenDecimals))), toTokenSymbol)
+		f1 := (fromTokenAmountFloat / math.Pow(10, float64(fromTokenDecimals)))
+		f2 := (quoteToTokenAmountFloat / math.Pow(10, float64(toTokenDecimals)))
+
+		f := 1.0
+
+		if pm.currentOrderType == BuyOrder {
+			pm.Update(f1 / f2)
+			f = f1 / f2
+		}
+
+		if pm.currentOrderType == SellOrder {
+			pm.Update(f2 / f1)
+			f = f2 / f1
+		}
+
+		log.Infof("Current Exchange Rate: %f %s => %f %s", f1, fromTokenSymbol, f2, toTokenSymbol)
 		log.Debug("Generated swap quote successfully")
 
 		log.Debug("Creating order data...")
@@ -231,8 +271,18 @@ func main() {
 		log.Debugf("Signed EIP-712 Message Hex: %s", signatureHex)
 		log.Debug("Signed order successfully")
 
+		isTriggered := pm.IsTriggered()
+		log.Infof("[T: %t] Order Type: %s,  UP: %f, Down: %f, Last Buy Price: %f, Spot Price: %f",
+			isTriggered, pm.currentOrderType, pm.triggerPriceUp, pm.triggerPriceDown, pm.lastBuyPrice, f)
+
 		dur := 10 * time.Second
 		log.Infof("Sleeping for %s before next request...", dur)
 		time.Sleep(dur)
+
+		if isTriggered {
+			for {
+				time.Sleep(dur)
+			}
+		}
 	}
 }
