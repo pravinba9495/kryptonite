@@ -402,7 +402,7 @@ func (r *oneInchRouter) Expiration() int64 {
 	return r.session.Exp
 }
 
-// NewOneInchRouter creates a new instance of OneInchRouter with the specified contract address.
+// NewOneInchRouter creates a new instance of OneInchRouter with the specified contract address and blockchain id.
 func NewOneInchRouter(contractAddress string, chainId string) OneInchRouter {
 	return &oneInchRouter{
 		routerContractAddress: contractAddress,
