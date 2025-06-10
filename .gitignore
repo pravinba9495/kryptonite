@@ -1,2 +1,5 @@
 .env
 tmp
+*.json
+*.txt
+*.log
