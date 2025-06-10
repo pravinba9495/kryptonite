@@ -11,10 +11,10 @@ import (
 // Wallet interface defines methods for signing messages and retrieving the wallet address.
 type Wallet interface {
 	// SignMessage signs a message using the wallet's private key and returns the signature.
-	SignMessage(message string) ([]byte, error)
+	SignMessage(message []byte) ([]byte, error)
 
 	// VerifySignature verifies a message signature using the wallet's public key.
-	VerifySignature(signature []byte, message string) error
+	VerifySignature(signature []byte, message []byte) error
 
 	// Address returns the wallet's address.
 	Address() string
@@ -39,8 +39,8 @@ type wallet struct {
 }
 
 // SignMessage signs a message using the wallet's private key and returns the signature.
-func (w *wallet) SignMessage(message string) ([]byte, error) {
-	hash := crypto.Keccak256Hash([]byte(message))
+func (w *wallet) SignMessage(message []byte) ([]byte, error) {
+	hash := crypto.Keccak256Hash(message)
 
 	signature, err := crypto.Sign(hash.Bytes(), w.privateKey)
 	if err != nil {
@@ -51,8 +51,8 @@ func (w *wallet) SignMessage(message string) ([]byte, error) {
 }
 
 // Verify verifies a message signature using the wallet's private key
-func (w *wallet) VerifySignature(signature []byte, message string) error {
-	hash := crypto.Keccak256Hash([]byte(message))
+func (w *wallet) VerifySignature(signature []byte, message []byte) error {
+	hash := crypto.Keccak256Hash(message)
 
 	sigPublicKey, err := crypto.Ecrecover(hash.Bytes(), signature)
 	if err != nil {

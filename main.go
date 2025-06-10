@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/log"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
@@ -217,11 +219,16 @@ func main() {
 		log.Debugf("Created order with hash: %s successfully", order.OrderHash)
 
 		log.Debug("Signing order...")
-		signature, err := w.SignMessage(order.OrderHash)
+		orderTypedDataBytes, err := json.Marshal(order.TypedData)
+		if err != nil {
+			log.Fatalf("Error occurred while marshaling order typed data: %v, exiting...", err)
+		}
+		signature, err := w.SignMessage(orderTypedDataBytes)
 		if err != nil {
 			log.Fatalf("Error occurred while signing order: %v, exiting...", err)
 		}
-		if err := w.VerifySignature(signature, order.OrderHash); err != nil {
+		log.Debugf("Signed order with signature: %s successfully", hexutil.Encode(signature))
+		if err := w.VerifySignature(signature, orderTypedDataBytes); err != nil {
 			log.Fatalf("Error occurred while verifying signature: %v, exiting...", err)
 		}
 		log.Debug("Signed order successfully")
