@@ -1,20 +1,19 @@
 package main
 
 import (
-	"bytes"
 	"crypto/ecdsa"
+	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 )
 
 // Wallet interface defines methods for signing messages and retrieving the wallet address.
 type Wallet interface {
-	// SignMessage signs a message using the wallet's private key and returns the signature.
-	SignMessage(message []byte) ([]byte, error)
-
-	// VerifySignature verifies a message signature using the wallet's public key.
-	VerifySignature(signature []byte, message []byte) error
+	// SignEIP712Message signs an EIP-712 typed data message using the wallet's private key.
+	SignEIP712Message(message []byte) ([]byte, error)
 
 	// Address returns the wallet's address.
 	Address() string
@@ -38,33 +37,52 @@ type wallet struct {
 	chainId string
 }
 
-// SignMessage signs a message using the wallet's private key and returns the signature.
-func (w *wallet) SignMessage(message []byte) ([]byte, error) {
-	hash := crypto.Keccak256Hash(message)
-
-	signature, err := crypto.Sign(hash.Bytes(), w.privateKey)
+// SignEIP712Message signs an EIP-712 typed data message using the wallet's private key.
+func (w *wallet) SignEIP712Message(message []byte) ([]byte, error) {
+	var typedData apitypes.TypedData
+	err := json.Unmarshal(message, &typedData)
 	if err != nil {
 		return []byte(""), err
 	}
 
-	return signature, nil
-}
-
-// Verify verifies a message signature using the wallet's private key
-func (w *wallet) VerifySignature(signature []byte, message []byte) error {
-	hash := crypto.Keccak256Hash(message)
-
-	sigPublicKey, err := crypto.Ecrecover(hash.Bytes(), signature)
+	domainSeparator, err := typedData.HashStruct("EIP712Domain", typedData.Domain.Map())
 	if err != nil {
-		return err
+		return []byte(""), err
 	}
 
-	isMatching := bytes.Equal(sigPublicKey, crypto.FromECDSAPub(w.publicKey))
-
-	if !isMatching {
-		return errors.New("signature does not match the public key")
+	typedDataHash, err := typedData.HashStruct(typedData.PrimaryType, typedData.Message)
+	if err != nil {
+		return []byte(""), err
 	}
-	return nil
+
+	rawData := []byte(fmt.Sprintf("\x19\x01%s%s", string(domainSeparator), string(typedDataHash)))
+	digestHash := crypto.Keccak256(rawData)
+
+	signature, err := crypto.Sign(digestHash, w.privateKey)
+	if err != nil {
+		return []byte(""), err
+	}
+
+	recoveredPubKey, err := crypto.Ecrecover(digestHash, signature)
+	if err != nil {
+		return []byte(""), err
+	}
+
+	publicKey, err := crypto.UnmarshalPubkey(recoveredPubKey)
+	if err != nil {
+		return []byte(""), err
+	}
+
+	recoveredAddr := crypto.PubkeyToAddress(*publicKey)
+	if recoveredAddr.Hex() != w.address {
+		return []byte(""), errors.New("signature does not match the wallet address")
+	}
+
+	if signature[64] < 27 {
+		signature[64] += 27
+	}
+
+	return signature, nil
 }
 
 // Address returns the wallet's address.

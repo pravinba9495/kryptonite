@@ -223,16 +223,12 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error occurred while marshaling order typed data: %v, exiting...", err)
 		}
-		signature, err := w.SignMessage(orderTypedDataBytes)
+		signature, err := w.SignEIP712Message(orderTypedDataBytes)
 		if err != nil {
 			log.Fatalf("Error occurred while signing order: %v, exiting...", err)
 		}
-
 		signatureHex := hexutil.Encode(signature)
-		log.Debugf("Signed order with signature: %s successfully", signatureHex)
-		if err := w.VerifySignature(signature, orderTypedDataBytes); err != nil {
-			log.Fatalf("Error occurred while verifying signature: %v, exiting...", err)
-		}
+		log.Debugf("Signed EIP-712 Message Hex: %s", signatureHex)
 		log.Debug("Signed order successfully")
 
 		dur := 10 * time.Second
