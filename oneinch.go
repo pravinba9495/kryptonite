@@ -12,10 +12,22 @@ import (
 
 // QuoteResponse represents the response structure for a swap quote from the 1inch API.
 type QuoteResponse struct {
+	QuoteId           string `json:"quoteId"`
 	FromTokenAmount   string `json:"fromTokenAmount"`
 	ToTokenAmount     string `json:"toTokenAmount"`
 	RecommendedPreset string `json:"recommended_preset"`
 	Raw               string `json:"raw"`
+}
+
+type CreateOrderResponseMessageType struct {
+	Maker        string `json:"maker"`
+	MakerAsset   string `json:"makerAsset"`
+	TakerAsset   string `json:"takerAsset"`
+	MakerTraits  string `json:"makerTraits"`
+	Salt         string `json:"salt"`
+	MakingAmount string `json:"makingAmount"`
+	TakingAmount string `json:"takingAmount"`
+	Receiver     string `json:"receiver"`
 }
 
 // CreateOrderResponse represents the response structure for creating a swap order on the 1inch API.
@@ -38,19 +50,22 @@ type CreateOrderResponse struct {
 			ChainId           int    `json:"chainId"`
 			VerifyingContract string `json:"verifyingContract"`
 		} `json:"domain"`
-		Message struct {
-			Maker        string `json:"maker"`
-			MakerAsset   string `json:"makerAsset"`
-			TakerAsset   string `json:"takerAsset"`
-			MakerTraits  string `json:"makerTraits"`
-			Salt         string `json:"salt"`
-			MakingAmount string `json:"makingAmount"`
-			TakingAmount string `json:"takingAmount"`
-			Receiver     string `json:"receiver"`
-		} `json:"message"`
+		Message CreateOrderResponseMessageType `json:"message"`
 	} `json:"typedData"`
 	OrderHash string `json:"orderHash"`
 	Extension string `json:"extension"`
+}
+
+// SubmitOrderRequestPayload represents the payload structure for submitting a swap order on the 1inch API.
+type SubmitOrderRequestPayload struct {
+	Extension string                         `json:"extension"`
+	QuoteId   string                         `json:"quoteId"`
+	Signature string                         `json:"signature"`
+	Order     CreateOrderResponseMessageType `json:"order"`
+}
+
+// SubmitOrderResponse represents the response structure for submitting a swap order on the 1inch API.
+type SubmitOrderResponse struct {
 }
 
 // BalancesAndAllowancesResponse represents the response structure for token balances and allowances from the 1inch API.
@@ -72,6 +87,9 @@ type OneInchRouter interface {
 
 	// CreateOrder creates a swap order on the 1inch API.
 	CreateOrder(walletAddress string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string, quote *QuoteResponse) (*CreateOrderResponse, error)
+
+	// SubmitOrder submits a swap order to the 1inch API.
+	SubmitOrder(signatureHex string, order *CreateOrderResponse, quote *QuoteResponse) (*SubmitOrderResponse, error)
 
 	// AccessToken returns the current access token.
 	AccessToken() string
@@ -267,6 +285,72 @@ func (r *oneInchRouter) CreateOrder(walletAddress string, fromTokenAddress strin
 	}
 
 	return &createOrderResponse, nil
+}
+
+// SubmitOrder submits a swap order to the 1inch API.
+func (r *oneInchRouter) SubmitOrder(signatureHex string, order *CreateOrderResponse, quote *QuoteResponse) (*SubmitOrderResponse, error) {
+	if order == nil {
+		return nil, errors.New("invalid order, cannot be nil")
+	}
+
+	if quote == nil {
+		return nil, errors.New("invalid quote, cannot be nil")
+	}
+
+	url := fmt.Sprintf("https://proxy-app.1inch.io/v2.0/fusion/relayer/v2.0/%s/order/submit", r.chainId)
+
+	payload := SubmitOrderRequestPayload{
+		Extension: order.Extension,
+		QuoteId:   quote.QuoteId,
+		Signature: signatureHex,
+		Order: CreateOrderResponseMessageType{
+			Maker:        order.TypedData.Message.Maker,
+			MakerAsset:   order.TypedData.Message.MakerAsset,
+			TakerAsset:   order.TypedData.Message.TakerAsset,
+			MakerTraits:  order.TypedData.Message.MakerTraits,
+			Salt:         order.TypedData.Message.Salt,
+			MakingAmount: order.TypedData.Message.MakingAmount,
+			TakingAmount: order.TypedData.Message.TakingAmount,
+			Receiver:     order.TypedData.Message.Receiver,
+		},
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", r.session.AccessToken))
+	req.Header.Add("Content-Type", "application/json; charset=utf-8")
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return nil, errors.New("request failed, status code: " + resp.Status)
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var submitOrderResponse SubmitOrderResponse
+	if err := json.Unmarshal(bodyBytes, &submitOrderResponse); err != nil {
+		return nil, err
+	}
+
+	return &submitOrderResponse, nil
 }
 
 // GenerateOrRefreshAccessToken generates or refreshes the access token for the 1inch API.

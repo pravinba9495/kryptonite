@@ -227,7 +227,9 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error occurred while signing order: %v, exiting...", err)
 		}
-		log.Debugf("Signed order with signature: %s successfully", hexutil.Encode(signature))
+
+		signatureHex := hexutil.Encode(signature)
+		log.Debugf("Signed order with signature: %s successfully", signatureHex)
 		if err := w.VerifySignature(signature, orderTypedDataBytes); err != nil {
 			log.Fatalf("Error occurred while verifying signature: %v, exiting...", err)
 		}
