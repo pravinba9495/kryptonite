@@ -89,7 +89,7 @@ type OneInchRouter interface {
 	CreateOrder(walletAddress string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string, quote *QuoteResponse) (*CreateOrderResponse, error)
 
 	// SubmitOrder submits a swap order to the 1inch API.
-	SubmitOrder(signatureHex string, order *CreateOrderResponse, quote *QuoteResponse) (*SubmitOrderResponse, error)
+	SubmitOrder(signatureHex string, order *CreateOrderResponse, quote *QuoteResponse) (map[string]interface{}, error)
 
 	// AccessToken returns the current access token.
 	AccessToken() string
@@ -288,7 +288,7 @@ func (r *oneInchRouter) CreateOrder(walletAddress string, fromTokenAddress strin
 }
 
 // SubmitOrder submits a swap order to the 1inch API.
-func (r *oneInchRouter) SubmitOrder(signatureHex string, order *CreateOrderResponse, quote *QuoteResponse) (*SubmitOrderResponse, error) {
+func (r *oneInchRouter) SubmitOrder(signatureHex string, order *CreateOrderResponse, quote *QuoteResponse) (map[string]interface{}, error) {
 	if order == nil {
 		return nil, errors.New("invalid order, cannot be nil")
 	}
@@ -345,12 +345,12 @@ func (r *oneInchRouter) SubmitOrder(signatureHex string, order *CreateOrderRespo
 		return nil, err
 	}
 
-	var submitOrderResponse SubmitOrderResponse
+	var submitOrderResponse map[string]interface{}
 	if err := json.Unmarshal(bodyBytes, &submitOrderResponse); err != nil {
 		return nil, err
 	}
 
-	return &submitOrderResponse, nil
+	return submitOrderResponse, nil
 }
 
 // GenerateOrRefreshAccessToken generates or refreshes the access token for the 1inch API.
