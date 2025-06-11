@@ -248,10 +248,6 @@ func main() {
 		log.Debugf("Signed EIP-712 Message Hex: %s", signatureHex)
 		log.Debug("Signed order successfully")
 
-		isTriggered := pm.IsTriggered()
-		log.Infof("[T: %t] Order Type: %s,  UP: %f, Down: %f, Last Buy Price: %f, Spot Price: %f",
-			isTriggered, pm.currentOrderType, pm.triggerPriceUp, pm.triggerPriceDown, pm.lastBuyPrice, f)
-
 		dur := 10 * time.Second
 		log.Infof("Sleeping for %s before next request...", dur)
 		time.Sleep(dur)

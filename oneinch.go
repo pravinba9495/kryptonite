@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/charmbracelet/log"
 )
 
 // QuoteResponse represents the response structure for a swap quote from the 1inch API.
@@ -89,7 +91,7 @@ type OneInchRouter interface {
 	CreateOrder(walletAddress string, fromTokenAddress string, toTokenAddress string, fromTokenAmount string, quote *QuoteResponse) (*CreateOrderResponse, error)
 
 	// SubmitOrder submits a swap order to the 1inch API.
-	SubmitOrder(signatureHex string, order *CreateOrderResponse, quote *QuoteResponse) (map[string]interface{}, error)
+	SubmitOrder(signatureHex string, order *CreateOrderResponse, quote *QuoteResponse) error
 
 	// AccessToken returns the current access token.
 	AccessToken() string
@@ -288,13 +290,13 @@ func (r *oneInchRouter) CreateOrder(walletAddress string, fromTokenAddress strin
 }
 
 // SubmitOrder submits a swap order to the 1inch API.
-func (r *oneInchRouter) SubmitOrder(signatureHex string, order *CreateOrderResponse, quote *QuoteResponse) (map[string]interface{}, error) {
+func (r *oneInchRouter) SubmitOrder(signatureHex string, order *CreateOrderResponse, quote *QuoteResponse) error {
 	if order == nil {
-		return nil, errors.New("invalid order, cannot be nil")
+		return errors.New("invalid order, cannot be nil")
 	}
 
 	if quote == nil {
-		return nil, errors.New("invalid quote, cannot be nil")
+		return errors.New("invalid quote, cannot be nil")
 	}
 
 	url := fmt.Sprintf("https://proxy-app.1inch.io/v2.0/fusion/relayer/v2.0/%s/order/submit", r.chainId)
@@ -317,12 +319,12 @@ func (r *oneInchRouter) SubmitOrder(signatureHex string, order *CreateOrderRespo
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", r.session.AccessToken))
@@ -332,25 +334,22 @@ func (r *oneInchRouter) SubmitOrder(signatureHex string, order *CreateOrderRespo
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return nil, errors.New("request failed, status code: " + resp.Status)
+		return errors.New("request failed, status code: " + resp.Status)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var submitOrderResponse map[string]interface{}
-	if err := json.Unmarshal(bodyBytes, &submitOrderResponse); err != nil {
-		return nil, err
-	}
+	log.Infof("Order submitted successfully, response: %s", string(bodyBytes))
 
-	return submitOrderResponse, nil
+	return nil
 }
 
 // GenerateOrRefreshAccessToken generates or refreshes the access token for the 1inch API.
