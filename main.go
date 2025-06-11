@@ -72,8 +72,6 @@ func main() {
 
 	pm := NewPriceMonitor(BuyOrder, 0, 0, 1, 2)
 
-	done := false
-
 	for {
 		if err := r.GenerateOrRefreshAccessToken(); err != nil {
 			log.Fatalf("Error occurred while generating/refreshing access token: %v, exiting...", err)
@@ -196,27 +194,6 @@ func main() {
 			}
 		}
 
-		if !done {
-			if fromTokenSymbol == stableTokenSymbol {
-				pm.SwitchOrderType(BuyOrder, 999999999999)
-			} else {
-				cmd := rdb.Get(context.TODO(), fmt.Sprintf("LAST_BUY_PRICE:%s", targetTokenSymbol))
-				if cmd.Err() != nil && cmd.Err() != redis.Nil {
-					log.Fatalf("Error occurred while getting LAST_BUY_PRICE%s from Redis: %v, exiting...", toTokenSymbol, cmd.Err())
-				}
-				lastBuyPrice, err := cmd.Result()
-				if err != nil {
-					log.Fatalf("Error occurred while getting LAST_BUY_PRICE%s from Redis: %v, exiting...", toTokenSymbol, err)
-				}
-				lastBuyPriceFloat, err := strconv.ParseFloat(lastBuyPrice, 64)
-				if err != nil {
-					log.Fatalf("Error converting LAST_BUY_PRICE%s to float: %v, exiting...", toTokenSymbol, err)
-				}
-				pm.SwitchOrderType(SellOrder, lastBuyPriceFloat)
-			}
-			done = true
-		}
-
 		log.Debugf("Waiting to swap from %s to %s, generating quote...", fromTokenSymbol, toTokenSymbol)
 		quote, err := r.GetQuote(w.Address(), fromTokenAddress, toTokenAddress, fromTokenAmount)
 		if err != nil {
@@ -278,11 +255,5 @@ func main() {
 		dur := 10 * time.Second
 		log.Infof("Sleeping for %s before next request...", dur)
 		time.Sleep(dur)
-
-		if isTriggered {
-			for {
-				time.Sleep(dur)
-			}
-		}
 	}
 }
