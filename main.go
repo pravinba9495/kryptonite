@@ -213,16 +213,12 @@ func main() {
 		f1 := (fromTokenAmountFloat / math.Pow(10, float64(fromTokenDecimals)))
 		f2 := (quoteToTokenAmountFloat / math.Pow(10, float64(toTokenDecimals)))
 
-		f := 1.0
-
 		if pm.currentOrderType == BuyOrder {
 			pm.Update(f1 / f2)
-			f = f1 / f2
 		}
 
 		if pm.currentOrderType == SellOrder {
 			pm.Update(f2 / f1)
-			f = f2 / f1
 		}
 
 		log.Infof("Current Exchange Rate: %f %s => %f %s", f1, fromTokenSymbol, f2, toTokenSymbol)
