@@ -71,7 +71,6 @@ func main() {
 	log.Infof("Router Chain ID: %s", r.ChainID())
 
 	pm := NewPriceMonitor(BuyOrder, 0, 0, 0.5, 1.0)
-	done := false
 
 	for {
 		if err := r.GenerateOrRefreshAccessToken(); err != nil {
@@ -164,7 +163,9 @@ func main() {
 		var toTokenDecimals int
 
 		if balancesAndAllowances[targetTokenAddress].Balance == "0" && balancesAndAllowances[stableTokenAddress].Balance != "0" {
-			done = true
+			if pm.currentOrderType != BuyOrder {
+				pm.SwitchOrderType(BuyOrder, 0, 0)
+			}
 			fromTokenAddress = stableTokenAddress
 			fromTokenSymbol = stableTokenSymbol
 			fromTokenAmount = balancesAndAllowances[stableTokenAddress].Balance
@@ -181,10 +182,9 @@ func main() {
 		}
 
 		if balancesAndAllowances[targetTokenAddress].Balance != "0" && balancesAndAllowances[stableTokenAddress].Balance == "0" {
-			if !done {
+			if pm.currentOrderType != SellOrder {
 				pm.SwitchOrderType(SellOrder, 0, 0)
 			}
-			done = true
 			fromTokenAddress = targetTokenAddress
 			fromTokenSymbol = targetTokenSymbol
 			fromTokenAmount = balancesAndAllowances[targetTokenAddress].Balance
@@ -220,16 +220,14 @@ func main() {
 		f2 := (quoteToTokenAmountFloat / math.Pow(10, float64(toTokenDecimals)))
 		currentPrice := 0.0
 
-		if done {
-			if pm.currentOrderType == BuyOrder {
-				currentPrice = f1 / f2
-			}
-
-			if pm.currentOrderType == SellOrder {
-				currentPrice = f2 / f1
-			}
-			pm.Update(currentPrice)
+		if pm.currentOrderType == BuyOrder {
+			currentPrice = f1 / f2
 		}
+
+		if pm.currentOrderType == SellOrder {
+			currentPrice = f2 / f1
+		}
+		pm.Update(currentPrice)
 
 		log.Infof("Current Exchange Rate: %f %s => %f %s", f1, fromTokenSymbol, f2, toTokenSymbol)
 		log.Debug("Generated swap quote successfully")

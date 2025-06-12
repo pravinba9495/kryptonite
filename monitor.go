@@ -52,7 +52,6 @@ func (pm *PriceMonitor) Update(currentPrice float64) {
 	if pm.currentOrderType == BuyOrder {
 		if currentPrice >= pm.triggerPriceUp || currentPrice <= pm.triggerPriceDown {
 			isTriggered = true
-			pm.SwitchOrderType(SellOrder, 0, 0)
 		} else {
 			newTriggerPriceDown := currentPrice * (1 - (pm.limitPercent / 100))
 			if newTriggerPriceDown < pm.triggerPriceDown || pm.triggerPriceDown < 0 {
@@ -67,7 +66,6 @@ func (pm *PriceMonitor) Update(currentPrice float64) {
 	} else if pm.currentOrderType == SellOrder {
 		if currentPrice >= pm.triggerPriceUp || currentPrice <= pm.triggerPriceDown {
 			isTriggered = true
-			pm.SwitchOrderType(BuyOrder, 0, 0)
 		} else {
 			newTiggerPriceUp := currentPrice * (1 + (pm.limitPercent / 100))
 			if newTiggerPriceUp > pm.triggerPriceUp || pm.triggerPriceUp > 1e9 {
