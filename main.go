@@ -258,7 +258,7 @@ func main() {
 		log.Infof("Waiting to %s, Triggered: %t, Current Price: 1 %s = %f %s, Up: %f %s, Down %f %s", pm.currentOrderType.String(), isTriggered, targetTokenSymbol, currentPrice, stableTokenSymbol, pm.triggerPriceUp, stableTokenSymbol, pm.triggerPriceDown, stableTokenSymbol)
 
 		dur := 10 * time.Second
-		if isTriggered && f2 > 971.00 {
+		if isTriggered {
 			log.Info("Submitting order...")
 			if err := r.SubmitOrder(signatureHex, order, quote); err != nil {
 				log.Errorf("Error occurred while submitting order: %v", err)
