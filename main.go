@@ -252,7 +252,7 @@ func main() {
 		log.Debugf("Signed EIP-712 Message Hex: %s", signatureHex)
 		log.Debug("Signed order successfully")
 
-		isTriggered := ((pm.currentOrderType == SellOrder && f2 > 971.0) || (pm.currentOrderType == BuyOrder && f2 < 107000.0))
+		isTriggered := ((pm.currentOrderType == SellOrder && f2 > 971.0) || (pm.currentOrderType == BuyOrder && currentPrice < 107000.0))
 		log.Infof("Waiting to %s, Triggered: %t, Current Price: 1 %s = %f %s, Up: %f %s, Down %f %s", pm.currentOrderType.String(), isTriggered, targetTokenSymbol, currentPrice, stableTokenSymbol, pm.triggerPriceUp, stableTokenSymbol, pm.triggerPriceDown, stableTokenSymbol)
 
 		dur := 10 * time.Second
