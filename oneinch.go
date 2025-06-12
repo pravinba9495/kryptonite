@@ -8,8 +8,6 @@ import (
 	"io"
 	"net/http"
 	"time"
-
-	"github.com/charmbracelet/log"
 )
 
 // QuoteResponse represents the response structure for a swap quote from the 1inch API.
@@ -341,13 +339,6 @@ func (r *oneInchRouter) SubmitOrder(signatureHex string, order *CreateOrderRespo
 	if resp.StatusCode != http.StatusCreated {
 		return errors.New("request failed, status code: " + resp.Status)
 	}
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	log.Infof("Order submitted successfully, response: %s", string(bodyBytes))
 
 	return nil
 }

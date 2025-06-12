@@ -22,25 +22,23 @@ type PriceMonitor struct {
 	triggerPriceUp   float64
 	triggerPriceDown float64
 	stopLossPercent  float64
-	lastBuyPrice     float64
+	previousPrice    float64
 	isTriggered      bool
 }
 
-func (pm *PriceMonitor) SwitchOrderType(orderType OrderType, price float64) {
+func (pm *PriceMonitor) SwitchOrderType(orderType OrderType, triggerPriceUp float64, triggerPriceDown float64) {
+	pm.currentOrderType = orderType
+	pm.previousPrice = 0
+	pm.triggerPriceUp = 1e10
+	pm.triggerPriceDown = -1
 	pm.isTriggered = false
 
-	if orderType == SellOrder {
-		pm.currentOrderType = SellOrder
-		pm.lastBuyPrice = price
-		pm.triggerPriceUp = price * (1 + (pm.limitPercent / 100))
-		pm.triggerPriceDown = price * (1 - (pm.stopLossPercent / 100))
+	if triggerPriceUp > 0 {
+		pm.triggerPriceUp = triggerPriceUp
 	}
 
-	if orderType == BuyOrder {
-		pm.currentOrderType = BuyOrder
-		pm.lastBuyPrice = 0
-		pm.triggerPriceUp = price * (1 + (pm.stopLossPercent / 100))
-		pm.triggerPriceDown = price * (1 - (pm.limitPercent / 100))
+	if triggerPriceDown > 0 {
+		pm.triggerPriceDown = triggerPriceDown
 	}
 }
 
@@ -52,13 +50,12 @@ func (pm *PriceMonitor) Update(currentPrice float64) {
 	isTriggered := false
 
 	if pm.currentOrderType == BuyOrder {
-		pm.lastBuyPrice = 0
-		if currentPrice >= pm.triggerPriceUp {
+		if currentPrice >= pm.triggerPriceUp || currentPrice <= pm.triggerPriceDown {
 			isTriggered = true
-			pm.SwitchOrderType(SellOrder, currentPrice)
+			pm.SwitchOrderType(SellOrder, 0, 0)
 		} else {
 			newTriggerPriceDown := currentPrice * (1 - (pm.limitPercent / 100))
-			if newTriggerPriceDown < pm.triggerPriceDown {
+			if newTriggerPriceDown < pm.triggerPriceDown || pm.triggerPriceDown < 0 {
 				pm.triggerPriceDown = newTriggerPriceDown
 			}
 
@@ -68,17 +65,17 @@ func (pm *PriceMonitor) Update(currentPrice float64) {
 			}
 		}
 	} else if pm.currentOrderType == SellOrder {
-		if currentPrice <= pm.triggerPriceDown {
+		if currentPrice >= pm.triggerPriceUp || currentPrice <= pm.triggerPriceDown {
 			isTriggered = true
-			pm.SwitchOrderType(BuyOrder, currentPrice)
+			pm.SwitchOrderType(BuyOrder, 0, 0)
 		} else {
 			newTiggerPriceUp := currentPrice * (1 + (pm.limitPercent / 100))
-			if newTiggerPriceUp > pm.triggerPriceUp {
+			if newTiggerPriceUp > pm.triggerPriceUp || pm.triggerPriceUp > 1e9 {
 				pm.triggerPriceUp = newTiggerPriceUp
 			}
 
 			newTriggerPriceDown := currentPrice * (1 - (pm.stopLossPercent / 100))
-			if newTriggerPriceDown > pm.triggerPriceDown {
+			if newTriggerPriceDown > pm.triggerPriceDown || pm.triggerPriceDown < 0 {
 				pm.triggerPriceDown = newTriggerPriceDown
 			}
 		}
@@ -87,6 +84,7 @@ func (pm *PriceMonitor) Update(currentPrice float64) {
 		panic("unknown order type")
 	}
 
+	pm.previousPrice = currentPrice
 	pm.isTriggered = isTriggered
 }
 
@@ -97,10 +95,9 @@ func NewPriceMonitor(initialOrderType OrderType, initialPrice float64, lastBuyPr
 		pm = PriceMonitor{
 			currentOrderType: initialOrderType,
 			limitPercent:     limitPercent,
-			triggerPriceUp:   initialPrice * (1 + (limitPercent / 100)),
+			triggerPriceUp:   initialPrice * (1 + (stopLossPercent / 100)),
 			triggerPriceDown: initialPrice * (1 - (limitPercent / 100)),
 			stopLossPercent:  stopLossPercent,
-			lastBuyPrice:     0,
 			isTriggered:      false,
 		}
 	} else if initialOrderType == SellOrder {
@@ -110,7 +107,6 @@ func NewPriceMonitor(initialOrderType OrderType, initialPrice float64, lastBuyPr
 			triggerPriceUp:   lastBuyPrice * (1 + (limitPercent / 100)),
 			triggerPriceDown: lastBuyPrice * (1 - (stopLossPercent / 100)),
 			stopLossPercent:  stopLossPercent,
-			lastBuyPrice:     lastBuyPrice,
 			isTriggered:      false,
 		}
 	} else {

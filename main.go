@@ -70,7 +70,8 @@ func main() {
 	log.Infof("Router Contract Address: %s", r.RouterContractAddress())
 	log.Infof("Router Chain ID: %s", r.ChainID())
 
-	pm := NewPriceMonitor(BuyOrder, 0, 0, 1, 2)
+	pm := NewPriceMonitor(BuyOrder, 0, 0, 0.5, 1.0)
+	done := false
 
 	for {
 		if err := r.GenerateOrRefreshAccessToken(); err != nil {
@@ -163,6 +164,7 @@ func main() {
 		var toTokenDecimals int
 
 		if balancesAndAllowances[targetTokenAddress].Balance == "0" && balancesAndAllowances[stableTokenAddress].Balance != "0" {
+			done = true
 			fromTokenAddress = stableTokenAddress
 			fromTokenSymbol = stableTokenSymbol
 			fromTokenAmount = balancesAndAllowances[stableTokenAddress].Balance
@@ -179,6 +181,10 @@ func main() {
 		}
 
 		if balancesAndAllowances[targetTokenAddress].Balance != "0" && balancesAndAllowances[stableTokenAddress].Balance == "0" {
+			if !done {
+				pm.SwitchOrderType(SellOrder, 0, 0)
+			}
+			done = true
 			fromTokenAddress = targetTokenAddress
 			fromTokenSymbol = targetTokenSymbol
 			fromTokenAmount = balancesAndAllowances[targetTokenAddress].Balance
@@ -212,13 +218,17 @@ func main() {
 
 		f1 := (fromTokenAmountFloat / math.Pow(10, float64(fromTokenDecimals)))
 		f2 := (quoteToTokenAmountFloat / math.Pow(10, float64(toTokenDecimals)))
+		currentPrice := 0.0
 
-		if pm.currentOrderType == BuyOrder {
-			pm.Update(f1 / f2)
-		}
+		if done {
+			if pm.currentOrderType == BuyOrder {
+				currentPrice = f1 / f2
+			}
 
-		if pm.currentOrderType == SellOrder {
-			pm.Update(f2 / f1)
+			if pm.currentOrderType == SellOrder {
+				currentPrice = f2 / f1
+			}
+			pm.Update(currentPrice)
 		}
 
 		log.Infof("Current Exchange Rate: %f %s => %f %s", f1, fromTokenSymbol, f2, toTokenSymbol)
@@ -244,7 +254,19 @@ func main() {
 		log.Debugf("Signed EIP-712 Message Hex: %s", signatureHex)
 		log.Debug("Signed order successfully")
 
+		isTriggered := pm.isTriggered
+		log.Infof("Waiting to %s, Triggered: %t, Current Price: 1 %s = %f %s, Up: %f %s, Down %f %s", pm.currentOrderType.String(), isTriggered, targetTokenSymbol, currentPrice, stableTokenSymbol, pm.triggerPriceUp, stableTokenSymbol, pm.triggerPriceDown, stableTokenSymbol)
+
 		dur := 10 * time.Second
+		if isTriggered {
+			log.Info("Submitting order...")
+			if err := r.SubmitOrder(signatureHex, order, quote); err != nil {
+				log.Errorf("Error occurred while submitting order: %v", err)
+			} else {
+				log.Info("Order submitted successfully")
+			}
+			dur = 1 * time.Hour
+		}
 		log.Infof("Sleeping for %s before next request...", dur)
 		time.Sleep(dur)
 	}
